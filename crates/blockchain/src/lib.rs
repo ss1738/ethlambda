@@ -1261,21 +1261,33 @@ impl BlockChainServer {
                         missing_ancestor = %ShortRoot(&missing.0),
                         "Beacon block parent missing; held"
                     );
-                    // Only worth asking for once the range fetch has already
-                    // passed this slot. Below that, the batch on the wire will
-                    // bring the parent anyway and a by-root request would only
-                    // duplicate it.
+                    // Asked for unconditionally. This used to fire only once
+                    // the import watermark had passed the orphan's slot, on the
+                    // reasoning that below that line the range fetch already
+                    // has a batch on the wire carrying the parent, so a by-root
+                    // request would duplicate it. That reasoning holds exactly
+                    // as long as the range fetch is making progress, and the two
+                    // recovery paths were guarded on each other: the resync
+                    // timer will not reopen a session while one is already open
+                    // (`on_beacon_resync_check`), and this guard withheld the
+                    // by-root fallback until a session had done its job. A
+                    // session that stops issuing requests therefore disables
+                    // both, and neither can bootstrap the other.
                     //
-                    // The import watermark, not `store.head_slot()`: that reads
-                    // lean's `head` metadata key, which a beacon store never
-                    // writes, so it panicked the actor on the first gossiped
-                    // block with an unknown parent. It is also the wrong
-                    // question, since what this needs to know is how far the
-                    // range fetch has reached, not which branch fork choice
-                    // settled on.
-                    if self.store.beacon_highest_imported_slot() >= slot {
-                        self.request_missing_beacon_block(missing);
-                    }
+                    // Observed on the mainnet follower: head frozen 17,966
+                    // slots back for 60 hours with 180 peers connected and
+                    // every one of them advertising the real tip, no
+                    // `BlocksByRange` request on the wire, and this branch
+                    // never taken because every gossiped orphan sat far above
+                    // the watermark.
+                    //
+                    // Duplicate requests are already handled a layer down:
+                    // `P2PServer`'s `FetchBeaconBlock` handler drops a root it
+                    // is already fetching, and `beacon_pending` reports the
+                    // deepest missing ancestor rather than each block's own
+                    // parent, so a buffer full of blocks behind one hole asks
+                    // for one root, not a thousand.
+                    self.request_missing_beacon_block(missing);
                 }
             }
             return;
