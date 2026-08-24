@@ -784,7 +784,7 @@ impl P2PServer {
         }
 
         if let Some(addrs) = self.bootnode_addrs.get(&peer_id) {
-            info!(%peer_id, "Redialing disconnected bootnode");
+            trace!(%peer_id, "Redialing disconnected bootnode");
             self.swarm_handle
                 .dial(DialOpts::peer_id(peer_id).addresses(addrs.clone()).build());
         }
@@ -874,7 +874,7 @@ impl P2PServer {
             {
                 continue;
             }
-            info!(
+            trace!(
                 peer_id = %candidate.peer_id,
                 subnets = ?candidate.subnets,
                 "Dialing discovered peer"
@@ -1019,7 +1019,7 @@ async fn handle_swarm_event(
                 });
                 match beacon_status {
                     Some((status, digest)) => {
-                        info!(
+                        trace!(
                             %peer_id,
                             %direction,
                             %transport,
@@ -1033,7 +1033,7 @@ async fn handle_swarm_event(
                         let our_status = build_status(&server.store);
                         let our_finalized_slot = our_status.finalized.slot;
                         let our_head_slot = our_status.head.slot;
-                        info!(
+                        trace!(
                             %peer_id,
                             %direction,
                             %transport,
@@ -1053,7 +1053,7 @@ async fn handle_swarm_event(
                     }
                 }
             } else {
-                info!(%peer_id, %direction, "Added peer connection");
+                trace!(%peer_id, %direction, "Added peer connection");
             }
         }
         SwarmEvent::ConnectionClosed {
@@ -1093,7 +1093,7 @@ async fn handle_swarm_event(
                     reason,
                 );
 
-                info!(
+                trace!(
                     %peer_id,
                     %direction,
                     %reason,
@@ -1108,10 +1108,10 @@ async fn handle_swarm_event(
                         ctx.clone(),
                         p2p_protocol::RetryPeerRedial { peer_id },
                     );
-                    info!(%peer_id, "Scheduled bootnode redial in {}s", PEER_REDIAL_INTERVAL_SECS);
+                    trace!(%peer_id, "Scheduled bootnode redial in {}s", PEER_REDIAL_INTERVAL_SECS);
                 }
             } else {
-                info!(%peer_id, %direction, %reason, "Peer connection closed but other connections remain");
+                trace!(%peer_id, %direction, %reason, "Peer connection closed but other connections remain");
             }
         }
         SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
@@ -1125,7 +1125,7 @@ async fn handle_swarm_event(
                 "outbound",
                 result,
             );
-            warn!(?peer_id, %error, "Outgoing connection error");
+            debug!(?peer_id, %error, "Outgoing connection error");
 
             // A dial that never establishes ends up here rather than in
             // `ConnectionClosed`, so this is the only place a discovery-fed
@@ -1149,7 +1149,7 @@ async fn handle_swarm_event(
                     ctx.clone(),
                     p2p_protocol::RetryPeerRedial { peer_id: pid },
                 );
-                info!(%pid, "Scheduled bootnode redial after connection error");
+                trace!(%pid, "Scheduled bootnode redial after connection error");
             }
         }
         SwarmEvent::IncomingConnectionError { peer_id, error, .. } => {
@@ -1179,7 +1179,7 @@ async fn handle_swarm_event(
                     "inbound",
                     "error",
                 );
-                warn!(%error, "Incoming connection error");
+                debug!(%error, "Incoming connection error");
             }
         }
         _ => {

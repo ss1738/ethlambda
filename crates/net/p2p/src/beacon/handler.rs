@@ -10,7 +10,7 @@ use ethlambda_network_api::BlockSource;
 use libp2p::PeerId;
 use libp2p::gossipsub::Event;
 use libp2p::request_response::ResponseChannel;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use super::messages::{
     AttnetsBits, BeaconBlocksByRangeRequest, BeaconMetaData, BeaconStatus, Goodbye,
@@ -214,7 +214,7 @@ pub async fn handle_beacon_request(
                 );
                 metrics::inc_beacon_status_digest_mismatch();
             } else {
-                info!(
+                trace!(
                     %peer,
                     peer_head_slot = peer_status.head_slot(),
                     peer_finalized_epoch = peer_status.finalized_epoch(),
@@ -239,7 +239,7 @@ pub async fn handle_beacon_request(
         BeaconRequest::Goodbye(Goodbye { reason }) => {
             // No response: goodbye is one-way. Dropping the channel closes the
             // stream, which is what the peer is waiting for.
-            info!(%peer, reason, "Peer said goodbye");
+            trace!(%peer, reason, "Peer said goodbye");
             return;
         }
         BeaconRequest::BlocksByRange(request) => {
@@ -296,7 +296,7 @@ pub fn handle_beacon_response(server: &mut P2PServer, peer: PeerId, response: Be
                 metrics::inc_beacon_status_digest_mismatch();
                 return;
             }
-            info!(
+            trace!(
                 %peer,
                 peer_head_slot = status.head_slot(),
                 peer_finalized_epoch = status.finalized_epoch(),

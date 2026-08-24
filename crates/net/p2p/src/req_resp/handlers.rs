@@ -6,7 +6,7 @@ use libp2p::{PeerId, request_response};
 use rand::seq::SliceRandom;
 use spawned_concurrency::tasks::{Context, send_after};
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use ethlambda_types::checkpoint::Checkpoint;
 use ethlambda_types::primitives::HashTreeRoot as _;
@@ -36,25 +36,25 @@ pub async fn handle_req_resp_message(
                 let peer_count = server.connected_peers.len();
                 match request {
                     Request::Status(status) => {
-                        info!(kind = "status_request", peer_count, "P2P message received");
+                        trace!(kind = "status_request", peer_count, "P2P message received");
                         handle_status_request(server, status, channel, peer).await;
                     }
                     Request::BlocksByRoot(request) => {
-                        info!(
+                        trace!(
                             kind = "blocks_by_root_request",
                             peer_count, "P2P message received"
                         );
                         handle_blocks_by_root_request(server, request, channel, peer).await;
                     }
                     Request::BlocksByRange(request) => {
-                        info!(
+                        trace!(
                             kind = "blocks_by_range_request",
                             peer_count, "P2P message received"
                         );
                         handle_blocks_by_range_request(server, request, channel, peer).await;
                     }
                     Request::Beacon(request) => {
-                        info!(kind = "beacon_request", peer_count, "P2P message received");
+                        trace!(kind = "beacon_request", peer_count, "P2P message received");
                         crate::beacon::handler::handle_beacon_request(
                             server, peer, request, channel,
                         )
@@ -70,11 +70,11 @@ pub async fn handle_req_resp_message(
                 match response {
                     Response::Success { payload } => match payload {
                         ResponsePayload::Status(status) => {
-                            info!(kind = "status_response", peer_count, "P2P message received");
+                            trace!(kind = "status_response", peer_count, "P2P message received");
                             handle_status_response(server, status, peer).await;
                         }
                         ResponsePayload::Beacon(BeaconResponse::Status(status)) => {
-                            info!(kind = "beacon_status", peer_count, "P2P message received");
+                            trace!(kind = "beacon_status", peer_count, "P2P message received");
                             crate::beacon::handler::handle_beacon_response(
                                 server,
                                 peer,
@@ -83,7 +83,7 @@ pub async fn handle_req_resp_message(
                             crate::beacon::sync::on_beacon_status(server, peer, &status).await;
                         }
                         ResponsePayload::Beacon(BeaconResponse::Blocks(blocks)) => {
-                            info!(kind = "beacon_blocks", peer_count, "P2P message received");
+                            trace!(kind = "beacon_blocks", peer_count, "P2P message received");
                             match server.outbound_requests.remove(&request_id) {
                                 Some(PendingRequestKind::BeaconRange {
                                     start_slot,
@@ -109,11 +109,11 @@ pub async fn handle_req_resp_message(
                             }
                         }
                         ResponsePayload::Beacon(response) => {
-                            info!(kind = "beacon_response", peer_count, "P2P message received");
+                            trace!(kind = "beacon_response", peer_count, "P2P message received");
                             crate::beacon::handler::handle_beacon_response(server, peer, response);
                         }
                         ResponsePayload::Blocks(blocks) => {
-                            info!(kind = "blocks_response", peer_count, "P2P message received");
+                            trace!(kind = "blocks_response", peer_count, "P2P message received");
 
                             match server.outbound_requests.remove(&request_id) {
                                 Some(PendingRequestKind::Range {
@@ -185,7 +185,7 @@ pub async fn handle_req_resp_message(
             error,
             ..
         } => {
-            warn!(%peer, ?request_id, %error, "Outbound request failed");
+            debug!(%peer, ?request_id, %error, "Outbound request failed");
 
             // Check if this was a block fetch request
             match server.outbound_requests.remove(&request_id) {
@@ -238,7 +238,7 @@ pub async fn handle_req_resp_message(
             error,
             ..
         } => {
-            warn!(%peer, ?request_id, %error, "Inbound request failed");
+            debug!(%peer, ?request_id, %error, "Inbound request failed");
         }
         request_response::Event::ResponseSent {
             peer, request_id, ..
@@ -254,14 +254,14 @@ async fn handle_status_request(
     channel: request_response::ResponseChannel<Response>,
     peer: PeerId,
 ) {
-    info!(finalized_slot=%request.finalized.slot, head_slot=%request.head.slot, "Received status request from peer {peer}");
+    trace!(finalized_slot=%request.finalized.slot, head_slot=%request.head.slot, "Received status request from peer {peer}");
     let our_status = build_status(&server.store);
     let response = Response::success(ResponsePayload::Status(our_status));
     server.swarm_handle.send_response(channel, response);
 }
 
 async fn handle_status_response(server: &mut P2PServer, status: Status, peer: PeerId) {
-    info!(finalized_slot=%status.finalized.slot, head_slot=%status.head.slot, "Received status response from peer {peer}");
+    trace!(finalized_slot=%status.finalized.slot, head_slot=%status.head.slot, "Received status response from peer {peer}");
 
     let our_head_slot = server.store.head_slot();
     if status.head.slot <= our_head_slot {
